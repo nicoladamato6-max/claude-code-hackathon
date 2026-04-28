@@ -1,5 +1,7 @@
 # Contoso Financial — Cloud Migration
 
+![CI](https://github.com/nicoladamato6-max/claude-code-hackathon/actions/workflows/ci.yml/badge.svg)
+
 Three on-premise workloads migrated to AWS using a replatform strategy:
 ECS Fargate + RDS PostgreSQL 15 + ElastiCache Redis + AWS Batch.
 
@@ -11,7 +13,7 @@ ECS Fargate + RDS PostgreSQL 15 + ElastiCache Redis + AWS Batch.
 
 The engagement started with a genuine conflict: the CFO had signed a fixed-deadline
 cloud contract while the CTO wanted cloud-native architecture. Before writing a line
-of code, we produced three documents that resolved the tension with evidence, not opinion.
+of code, we produced documents that resolved the tension with evidence, not opinion.
 
 **`docs/01-memo.md` — The decision**
 Chose **replatform** (ECS + RDS, not Lambda + DynamoDB) because:
@@ -39,6 +41,26 @@ Option B (Replatform) scored **64/75**, 15 points ahead of the next viable optio
 **11 technology-level ADRs** document every AWS service choice (ECS vs EKS,
 RDS vs Aurora, AWS Batch vs Lambda, ALB vs NLB, etc.) with alternatives
 considered and "revisit if" conditions.
+
+**`docs/04-migration-plan.md` — The plan**
+Week-by-week execution plan with go/no-go criteria for each workload cutover,
+Finance monthly close window enforcement, parallel-run periods, and a cutover
+day checklist readable under pressure.
+
+**`docs/05-security-review.md` — The threat model**
+STRIDE threat model across all three workloads, OWASP Top 10 mapping,
+network defence-in-depth diagram, secrets rotation schedule, and recommended
+pre-go-live penetration test scope.
+
+**`docs/06-compliance-checklist.md` — The compliance matrix**
+GDPR art.32, EBA Cloud Outsourcing GL/2019/02, and EU AI Act Annex III —
+**36/36 requirements met**, each mapped to the specific code or IaC control
+that satisfies it, plus the automated tests that verify it.
+
+**`docs/07-runbook.md` — The runbook**
+On-call playbook with alarm→action table, step-by-step CLI procedures for every
+CloudWatch alarm, secrets rotation procedures, and CloudWatch Logs Insights queries.
+Designed to be readable and actionable at 4am.
 
 ---
 
@@ -73,7 +95,7 @@ Reporting-db cutover avoids the last 3 business days of each month
 
 ### Phase 3 — Testing (tests/)
 
-Testing pyramid with four layers, **90+ tests total**:
+Testing pyramid with four layers, **112 tests total**:
 
 | Suite | Tests | What it verifies |
 |-------|-------|-----------------|
@@ -87,6 +109,10 @@ path traversal on asset keys, user enumeration prevention, cookie flags.
 
 Performance baselines (from `01-memo.md` sizing): `/healthz` p95 < 200ms,
 `/login` p95 < 500ms, `/api/accounts` p95 < 800ms (EBA cloud guidelines).
+
+The CI pipeline (`.github/workflows/ci.yml`) runs all four layers with fail-fast
+ordering, plus `terraform validate`, `ruff`/`mypy` lint, Trivy CVE scan, and
+Checkov IaC security analysis on every push.
 
 ---
 
@@ -195,6 +221,10 @@ contoso-financial/
 │   ├── 01-memo.md              Strategic decision + TCO analysis
 │   ├── 02-discovery.md         36 findings from stakeholder interviews
 │   ├── 03-options-adr.md       Scored options + 11 technology ADRs
+│   ├── 04-migration-plan.md    Week-by-week plan + go/no-go criteria
+│   ├── 05-security-review.md   STRIDE threat model + OWASP Top 10
+│   ├── 06-compliance-checklist.md  GDPR / EBA / EU AI Act — 36/36 ✅
+│   ├── 07-runbook.md           On-call playbook (alarm → action)
 │   └── 08-rollback-plan.md     Per-workload, per-stage rollback (readable at 4am)
 │
 ├── workloads/
@@ -216,6 +246,8 @@ contoso-financial/
 │   ├── batch/                  17 tests — reconcile logic and idempotency
 │   └── data-integrity/         28 tests — checksums and business rules
 │
+├── .github/
+│   └── workflows/ci.yml        CI: test pyramid + terraform validate + Trivy + Checkov
 ├── docker-compose.yml          Local cloud simulator (MinIO, Postgres, Redis, web-app)
 ├── pytest.ini
 ├── .gitignore                  *.tfstate, .env, .venv excluded
@@ -227,15 +259,17 @@ contoso-financial/
 
 ## Compliance summary
 
-| Requirement | Implementation |
-|------------|---------------|
-| GDPR data residency | All resources in `eu-west-1`; no cross-region replication |
-| GDPR encryption at rest | RDS AES-256, ElastiCache at-rest encryption, S3 SSE-AES256 |
-| GDPR encryption in transit | TLS 1.3 on ALB, `transit_encryption_enabled` on ElastiCache |
-| GDPR art.32 audit logging | `pgaudit` on RDS (query-level) + CloudTrail (API-level) |
-| GDPR access control | 5 per-team read-only roles; Secrets Manager audit via CloudTrail |
-| EU AI Act (Annex III) | `ai-act-scope:high-risk` tag on RDS tables with customer identifiers |
-| EBA cloud outsourcing GL | Exit strategy in `docs/08-rollback-plan.md`; data portability via RDS snapshots |
+| Requirement | Implementation | Verified by |
+|------------|---------------|-------------|
+| GDPR data residency | All resources in `eu-west-1`; no cross-region replication | `infra/` provider blocks |
+| GDPR encryption at rest | RDS AES-256, ElastiCache at-rest encryption, S3 SSE-AES256 | `tests/smoke/` |
+| GDPR encryption in transit | TLS 1.3 on ALB, `transit_encryption_enabled` on ElastiCache | `infra/web-app/` + `infra/reporting/` |
+| GDPR art.32 audit logging | `pgaudit` on RDS (query-level) + CloudTrail (API-level) | `tests/smoke/test_pgaudit_extension_installed` |
+| GDPR access control | 5 per-team read-only roles; Secrets Manager audit via CloudTrail | `tests/data-integrity/` |
+| EU AI Act (Annex III) | `ai-act-scope:high-risk` tag on RDS tables with customer identifiers | `V1__init_schema.sql` |
+| EBA cloud outsourcing GL | Exit strategy in `docs/08-rollback-plan.md`; data portability via RDS snapshots | `docs/06-compliance-checklist.md` |
+
+Full compliance matrix: `docs/06-compliance-checklist.md` — 36/36 requirements met.
 
 ---
 

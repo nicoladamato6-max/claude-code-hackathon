@@ -124,6 +124,9 @@ Each layer has dedicated classes (e.g. `TestSecurity`, `TestPerformance`,
 `TestIdempotency`). New tests go into the correct class — do not add security
 tests to the smoke suite or performance tests to contract.
 
+The CI pipeline (`.github/workflows/ci.yml`) enforces this ordering via
+`fail-fast: true` on the matrix. Smoke must pass before contract runs.
+
 ### Secrets: never in code, always filtered from logs
 
 The `_log()` helper in both `app.py` and `reconcile.py` filters any context
@@ -137,4 +140,36 @@ Workloads must be migrated in this order: web-app → batch → reporting-db.
 Reporting-db cutover must not overlap the last 3 business days of any month
 (Finance monthly close window 17:00–19:00 CET). This constraint comes from
 the Finance Team Lead interview (docs/02-discovery.md §9) and is encoded
-in docs/03-options-adr.md §Migration sequence.
+in docs/03-options-adr.md §Migration sequence and docs/04-migration-plan.md.
+
+### Documentation completeness
+
+Every engagement must produce all 8 documents before go-live:
+
+| Doc | Purpose |
+|-----|---------|
+| `01-memo.md` | Strategic decision + TCO |
+| `02-discovery.md` | Stakeholder interview findings |
+| `03-options-adr.md` | Architecture decision record |
+| `04-migration-plan.md` | Week-by-week plan + go/no-go |
+| `05-security-review.md` | STRIDE + OWASP mapping |
+| `06-compliance-checklist.md` | GDPR / EBA / EU AI Act matrix |
+| `07-runbook.md` | On-call operational playbook |
+| `08-rollback-plan.md` | Per-stage rollback procedures |
+
+Do not ship without all 8. Missing docs are a compliance gap (EBA GL/2019/02 requires
+documented exit strategy, DR plan, and audit procedures before go-live).
+
+### CI pipeline conventions
+
+The GitHub Actions workflow (`.github/workflows/ci.yml`) has four jobs:
+
+- **test** — matrix over the 4 test layers with `fail-fast: true`; uses
+  `docker compose up -d --wait` to start the stack; Flyway migrations applied before tests.
+- **lint** — `ruff check` + `mypy` on all workload and test Python files.
+- **terraform-validate** — `terraform init -backend=false` + `validate` + `fmt -check`
+  per module; no AWS credentials required.
+- **security-scan** — Trivy filesystem scan (CRITICAL/HIGH exit-1) + Checkov IaC scan
+  (advisory, soft_fail=true, SARIF uploaded to GitHub Security tab).
+
+All new code must pass these checks before merge. Do not use `--no-verify` to skip hooks.
