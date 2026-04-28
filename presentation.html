@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contoso Financial — Cloud Migration</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0a0f1e;
+    --surface:   #111827;
+    --border:    #1e3a5f;
+    --accent:    #3b82f6;
+    --accent2:   #10b981;
+    --warn:      #f59e0b;
+    --danger:    #ef4444;
+    --text:      #f1f5f9;
+    --muted:     #94a3b8;
+    --card:      #1a2540;
+  }
+
+  html, body { height: 100%; background: var(--bg); color: var(--text);
+               font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; }
+
+  /* ── Slide container ───────────────────────────────────────────────── */
+  .deck { width: 100vw; height: 100vh; position: relative; }
+
+  .slide {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    padding: 3rem 4rem;
+    opacity: 0; pointer-events: none;
+    transition: opacity .4s ease;
+  }
+  .slide.active { opacity: 1; pointer-events: auto; }
+
+  /* ── Typography ────────────────────────────────────────────────────── */
+  h1 { font-size: 3rem; font-weight: 700; letter-spacing: -.02em; line-height: 1.1; }
+  h2 { font-size: 2rem; font-weight: 700; color: var(--accent); margin-bottom: 1.5rem; }
+  h3 { font-size: 1.2rem; font-weight: 600; color: var(--accent2); margin-bottom: .5rem; }
+  p, li { font-size: 1.05rem; color: var(--muted); line-height: 1.7; }
+  strong { color: var(--text); }
+  .sub { font-size: 1.1rem; color: var(--muted); margin-top: .75rem; }
+  .label { font-size: .75rem; text-transform: uppercase; letter-spacing: .1em;
+           color: var(--muted); margin-bottom: .25rem; }
+
+  /* ── Layout helpers ─────────────────────────────────────────────────── */
+  .full { width: 100%; }
+  .cols { display: grid; gap: 1.5rem; width: 100%; }
+  .cols-2 { grid-template-columns: 1fr 1fr; }
+  .cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+  /* ── Cards ──────────────────────────────────────────────────────────── */
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: .75rem; padding: 1.25rem 1.5rem;
+  }
+  .card.accent  { border-color: var(--accent); }
+  .card.success { border-color: var(--accent2); }
+  .card.warn    { border-color: var(--warn); }
+  .card.danger  { border-color: var(--danger); }
+
+  /* ── Stat blocks ────────────────────────────────────────────────────── */
+  .stat { text-align: center; }
+  .stat .num { font-size: 2.8rem; font-weight: 800; line-height: 1; }
+  .stat .num.blue  { color: var(--accent); }
+  .stat .num.green { color: var(--accent2); }
+  .stat .num.amber { color: var(--warn); }
+  .stat .num.red   { color: var(--danger); }
+  .stat .desc { font-size: .85rem; color: var(--muted); margin-top: .4rem; }
+
+  /* ── Badges ─────────────────────────────────────────────────────────── */
+  .badge {
+    display: inline-block; padding: .2rem .7rem; border-radius: 999px;
+    font-size: .75rem; font-weight: 600; letter-spacing: .05em;
+  }
+  .badge-red    { background: rgba(239,68,68,.15);  color: #fca5a5; }
+  .badge-amber  { background: rgba(245,158,11,.15); color: #fcd34d; }
+  .badge-green  { background: rgba(16,185,129,.15); color: #6ee7b7; }
+  .badge-blue   { background: rgba(59,130,246,.15); color: #93c5fd; }
+
+  /* ── Quote ──────────────────────────────────────────────────────────── */
+  .quote {
+    border-left: 3px solid var(--accent); padding-left: 1rem;
+    color: var(--muted); font-style: italic; font-size: .95rem;
+    margin: .5rem 0;
+  }
+  .quote .speaker { color: var(--accent2); font-style: normal;
+                    font-size: .8rem; margin-top: .25rem; }
+
+  /* ── Score bar ──────────────────────────────────────────────────────── */
+  .score-row { display: flex; align-items: center; gap: .75rem; margin: .35rem 0; }
+  .score-label { width: 9rem; font-size: .85rem; color: var(--muted); flex-shrink: 0; }
+  .score-bar-wrap { flex: 1; background: var(--surface);
+                    border-radius: 999px; height: 8px; overflow: hidden; }
+  .score-bar { height: 100%; border-radius: 999px; background: var(--accent); }
+  .score-val { width: 2.5rem; font-size: .85rem; font-weight: 700;
+               color: var(--text); text-align: right; flex-shrink: 0; }
+
+  /* ── Timeline ───────────────────────────────────────────────────────── */
+  .timeline { display: flex; gap: 0; width: 100%; }
+  .tl-item { flex: 1; position: relative; padding: 0 .5rem; }
+  .tl-item::before {
+    content: ''; position: absolute; top: .6rem; left: 0; right: 0;
+    height: 2px; background: var(--border);
+  }
+  .tl-item:first-child::before { left: 50%; }
+  .tl-item:last-child::before  { right: 50%; }
+  .tl-dot {
+    width: 1.2rem; height: 1.2rem; border-radius: 50%;
+    background: var(--accent); border: 2px solid var(--bg);
+    margin: 0 auto .75rem; position: relative; z-index: 1;
+  }
+  .tl-dot.done { background: var(--accent2); }
+  .tl-title { font-size: .8rem; font-weight: 600; text-align: center; color: var(--text); }
+  .tl-meta  { font-size: .7rem; text-align: center; color: var(--muted); margin-top: .2rem; }
+
+  /* ── Nav ────────────────────────────────────────────────────────────── */
+  .nav {
+    position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 1rem; z-index: 100;
+  }
+  .nav button {
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--text); padding: .4rem 1.1rem; border-radius: .5rem;
+    cursor: pointer; font-size: .9rem; transition: background .2s;
+  }
+  .nav button:hover { background: var(--border); }
+  .nav button:disabled { opacity: .3; cursor: default; }
+  .nav .counter { font-size: .85rem; color: var(--muted); min-width: 4rem; text-align: center; }
+
+  /* ── Slide-specific tweaks ──────────────────────────────────────────── */
+  .slide-title { text-align: center; }
+  .slide-title h1 span { color: var(--accent); }
+  .slide-title .logo {
+    font-size: 1rem; letter-spacing: .2em; text-transform: uppercase;
+    color: var(--accent2); margin-bottom: 1rem;
+  }
+
+  .pill-list { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }
+  .pill {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: .4rem; padding: .3rem .8rem; font-size: .8rem; color: var(--muted);
+  }
+
+  ul.check li { list-style: none; padding-left: 1.4rem; position: relative; }
+  ul.check li::before { content: '✓'; position: absolute; left: 0; color: var(--accent2); }
+
+  .divider { width: 4rem; height: 3px; background: var(--accent);
+             border-radius: 999px; margin: 1rem auto; }
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+  <!-- ── 1. Title ───────────────────────────────────────────────────── -->
+  <div class="slide active slide-title" data-slide="1">
+    <div class="logo">Accenture × Claude Code Hackathon 2026</div>
+    <h1>Contoso Financial<br><span>Cloud Migration</span></h1>
+    <div class="divider"></div>
+    <p class="sub">Three on-premise workloads → AWS · 10 weeks · Zero data loss</p>
+    <div class="pill-list" style="justify-content:center;margin-top:2rem">
+      <span class="pill">ECS Fargate</span><span class="pill">RDS PostgreSQL 15</span>
+      <span class="pill">ElastiCache Redis</span><span class="pill">AWS Batch</span>
+      <span class="pill">Terraform IaC</span><span class="pill">90+ tests</span>
+    </div>
+  </div>
+
+  <!-- ── 2. The Challenge ───────────────────────────────────────────── -->
+  <div class="slide" data-slide="2">
+    <h2>The Challenge</h2>
+    <div class="cols cols-2 full">
+      <div>
+        <div class="card danger" style="margin-bottom:1rem">
+          <h3>The tension</h3>
+          <p>CFO signed a fixed-deadline AWS contract.<br>
+             CTO wants cloud-native, not lift-and-shift.<br>
+             Compliance requires everything in <strong>eu-west-1</strong>.<br>
+             SRE needs rollback at every stage.</p>
+        </div>
+        <div class="card warn">
+          <h3>The constraint</h3>
+          <p>Three workloads. One deadline. No budget for a full rewrite.
+             The team had never run Kubernetes in production.</p>
+        </div>
+      </div>
+      <div>
+        <h3 style="margin-bottom:1rem">Three workloads to migrate</h3>
+        <div class="card" style="margin-bottom:.75rem">
+          <strong>web-app</strong>
+          <p style="font-size:.85rem">Python/Flask · Redis sessions · S3 assets · ALB</p>
+        </div>
+        <div class="card" style="margin-bottom:.75rem">
+          <strong>batch-reconciliation</strong>
+          <p style="font-size:.85rem">Nightly Python job · Postgres → S3 · 2-hour SLA</p>
+        </div>
+        <div class="card">
+          <strong>reporting-db</strong>
+          <p style="font-size:.85rem">PostgreSQL 13 → 15 · 5 consumer teams · Multi-AZ</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 3. Discovery ───────────────────────────────────────────────── -->
+  <div class="slide" data-slide="3">
+    <h2>Discovery — Stakeholder Interviews</h2>
+    <div class="cols cols-2 full">
+      <div>
+        <p style="margin-bottom:1rem">Before writing code, we ran <strong>simulated stakeholder interviews</strong>.
+        The SRE "what keeps you up at night?" question surfaced 12 problems invisible to static analysis.</p>
+        <div class="quote">
+          "Se brucia il datacenter, abbiamo perso tutto. Non abbiamo un sito DR."
+          <div class="speaker">— SRE Lead</div>
+        </div>
+        <div class="quote" style="margin-top:.75rem">
+          "La password del core banking è hardcoded nella view. È lì da 7 anni."
+          <div class="speaker">— DBA</div>
+        </div>
+        <div class="quote" style="margin-top:.75rem">
+          "DEBUG = True. Non dovrebbe essere così ma non l'abbiamo mai cambiato."
+          <div class="speaker">— Security Officer</div>
+        </div>
+      </div>
+      <div>
+        <div class="cols cols-2" style="gap:.75rem">
+          <div class="stat card danger"><div class="num red">7</div><div class="desc">Critical findings</div></div>
+          <div class="stat card warn"> <div class="num amber">16</div><div class="desc">High findings</div></div>
+          <div class="stat card accent"><div class="num blue">9</div><div class="desc">Medium findings</div></div>
+          <div class="stat card">      <div class="num" style="color:var(--muted)">4</div><div class="desc">Low findings</div></div>
+        </div>
+        <div class="card" style="margin-top:1rem">
+          <h3>Top 3 critical</h3>
+          <ul class="check" style="font-size:.85rem">
+            <li>Core banking password hardcoded in DB view (7 years)</li>
+            <li><code>pg_hba.conf</code> open to <code>0.0.0.0/0</code> since emergency 2 years ago</li>
+            <li><code>DEBUG=True</code> exposing interactive debugger in production</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 4. The Decision ───────────────────────────────────────────── -->
+  <div class="slide" data-slide="4">
+    <h2>The Decision — Option B: Replatform</h2>
+    <div class="cols cols-2 full">
+      <div>
+        <p style="margin-bottom:1rem">Evaluated 4 options with weighted scoring.
+           Hard constraint: <strong>Option C (full rewrite) eliminated</strong>
+           before scoring — timeline makes it impossible.</p>
+        <div style="margin-top:1rem">
+          <div class="score-row"><span class="score-label">A — Rehost</span>
+            <div class="score-bar-wrap"><div class="score-bar" style="width:61%;background:var(--muted)"></div></div>
+            <span class="score-val">46</span></div>
+          <div class="score-row"><span class="score-label" style="color:var(--accent2)"><strong>B — Replatform</strong></span>
+            <div class="score-bar-wrap"><div class="score-bar" style="width:85%;background:var(--accent2)"></div></div>
+            <span class="score-val" style="color:var(--accent2)">64</span></div>
+          <div class="score-row"><span class="score-label">C — Refactor</span>
+            <div class="score-bar-wrap"><div class="score-bar" style="width:65%;background:var(--danger);opacity:.5"></div></div>
+            <span class="score-val" style="opacity:.5">49 ✗</span></div>
+          <div class="score-row"><span class="score-label">D — Hybrid</span>
+            <div class="score-bar-wrap"><div class="score-bar" style="width:63%;background:var(--muted)"></div></div>
+            <span class="score-val">47</span></div>
+        </div>
+        <p style="font-size:.8rem;color:var(--muted);margin-top:.75rem">
+          Weighted: migration risk ×3, timeline ×3, compliance ×3, SRE improvement ×2, cost ×2, operability ×2
+        </p>
+      </div>
+      <div>
+        <div class="card success" style="margin-bottom:.75rem">
+          <h3>CFO</h3>
+          <p style="font-size:.85rem">Contract already permits PaaS — Phase 2 cloud-native needs no renegotiation. Breakeven in 7 months.</p>
+        </div>
+        <div class="card accent" style="margin-bottom:.75rem">
+          <h3>CTO</h3>
+          <p style="font-size:.85rem">Written commitment: Phase 2 refactor starts within 6 months of go-live. Engineering budget in Q3 2026.</p>
+        </div>
+        <div class="card" style="margin-bottom:.75rem">
+          <h3>Compliance</h3>
+          <p style="font-size:.85rem">All resources in eu-west-1. GDPR + AI Act + EBA cloud guidelines satisfied.</p>
+        </div>
+        <div class="card">
+          <h3>SRE</h3>
+          <p style="font-size:.85rem">12/12 night-watch problems resolved. Zero SSH access to any server in production.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 5. Architecture ────────────────────────────────────────────── -->
+  <div class="slide" data-slide="5">
+    <h2>Target Architecture</h2>
+    <div style="width:100%;max-width:900px">
+      <!-- AWS Architecture Diagram (pure CSS) -->
+      <div style="display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:1rem;align-items:start">
+        <!-- Internet -->
+        <div style="text-align:center;padding-top:3rem">
+          <div class="card" style="padding:.5rem .75rem;font-size:.75rem;color:var(--muted)">Internet<br>Users</div>
+          <div style="font-size:1.5rem;color:var(--border);margin:.25rem 0">→</div>
+          <div class="badge badge-blue" style="font-size:.7rem">WAF + ALB</div>
+        </div>
+        <!-- Web Tier -->
+        <div class="card accent">
+          <div class="label">Web tier</div>
+          <strong style="font-size:.9rem">ECS Fargate</strong>
+          <p style="font-size:.75rem">Flask app · min 2 tasks · auto-scale CPU >60% · /healthz</p>
+          <div style="margin-top:.5rem"><span class="badge badge-green">HTTPS</span> <span class="badge badge-blue">ACM cert</span></div>
+        </div>
+        <!-- Batch Tier -->
+        <div class="card" style="border-color:var(--warn)">
+          <div class="label">Batch tier</div>
+          <strong style="font-size:.9rem">AWS Batch (Fargate)</strong>
+          <p style="font-size:.75rem">02:00 nightly · EventBridge Scheduler · fail-fast · CloudWatch alarm 04:15</p>
+          <div style="margin-top:.5rem"><span class="badge badge-amber">2-hr SLA</span></div>
+        </div>
+        <!-- DB Tier -->
+        <div>
+          <div class="card success" style="margin-bottom:.75rem">
+            <div class="label">Primary DB</div>
+            <strong style="font-size:.9rem">RDS PG15 Multi-AZ</strong>
+            <p style="font-size:.75rem">200 GB · pgaudit · pg_cron · auto-rotation · Performance Insights</p>
+          </div>
+          <div class="card" style="border-color:var(--accent);margin-bottom:.75rem">
+            <div class="label">Read replica</div>
+            <strong style="font-size:.9rem">RDS Read Replica</strong>
+            <p style="font-size:.75rem">Risk VaR + Finance concurrent queries</p>
+          </div>
+          <div class="card">
+            <div class="label">Session store</div>
+            <strong style="font-size:.9rem">ElastiCache Redis</strong>
+            <p style="font-size:.75rem">AOF + Multi-AZ replication</p>
+          </div>
+        </div>
+      </div>
+      <!-- Bottom row -->
+      <div class="cols cols-4" style="margin-top:1rem">
+        <div class="card" style="text-align:center;padding:.75rem">
+          <div class="label">Secrets</div><strong style="font-size:.85rem">Secrets Manager</strong>
+          <p style="font-size:.75rem">Auto-rotation enabled</p>
+        </div>
+        <div class="card" style="text-align:center;padding:.75rem">
+          <div class="label">Object store</div><strong style="font-size:.85rem">S3 (3 buckets)</strong>
+          <p style="font-size:.75rem">Versioned · Glacier lifecycle</p>
+        </div>
+        <div class="card" style="text-align:center;padding:.75rem">
+          <div class="label">Observability</div><strong style="font-size:.85rem">CloudWatch</strong>
+          <p style="font-size:.75rem">Container Insights · 7 alarms · SNS</p>
+        </div>
+        <div class="card" style="text-align:center;padding:.75rem">
+          <div class="label">Audit</div><strong style="font-size:.85rem">CloudTrail + pgaudit</strong>
+          <p style="font-size:.75rem">GDPR art.32 · 1-year retention</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 6. What We Fixed ───────────────────────────────────────────── -->
+  <div class="slide" data-slide="6">
+    <h2>What We Fixed — 23 of 36 Findings in Code</h2>
+    <div class="cols cols-3 full">
+      <div>
+        <h3>Security</h3>
+        <ul style="list-style:none;font-size:.85rem">
+          <li style="margin-bottom:.4rem"><span class="badge badge-red">Critical</span> <span style="color:var(--text)">DEBUG=False</span> — env var, default false</li>
+          <li style="margin-bottom:.4rem"><span class="badge badge-red">Critical</span> <span style="color:var(--text)">pg_hba removed</span> — SG rules only</li>
+          <li style="margin-bottom:.4rem"><span class="badge badge-red">Critical</span> <span style="color:var(--text)">dblink credential</span> — replaced with ETL join</li>
+          <li style="margin-bottom:.4rem"><span class="badge badge-red">Critical</span> <span style="color:var(--text)">reporting_user</span> — 5 per-team roles</li>
+          <li style="margin-bottom:.4rem"><span class="badge badge-blue">High</span> <span style="color:var(--text)">SQLi/XSS</span> — WAF + parameterised queries</li>
+          <li style="margin-bottom:.4rem"><span class="badge badge-blue">High</span> <span style="color:var(--text)">Cert expiry</span> — ACM auto-renew</li>
+          <li style="margin-bottom:.4rem"><span class="badge badge-blue">High</span> <span style="color:var(--text)">pgaudit</span> — enabled in RDS param group</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Reliability</h3>
+        <ul style="list-style:none;font-size:.85rem">
+          <li style="margin-bottom:.4rem"><span class="badge badge-blue">High</span> <span style="color:var(--text)">DR=zero</span> → RDS Multi-AZ RPO&lt;5min</li>
+          <li style="margin-bottom:.4rem"><span class="badge badge-blue">High</span> <span style="color:var(--text)">Redis crash</span> → AOF + Multi-AZ failover</li>
+          <li style="margin-bottom:.4rem"><span class="badge badge-blue">High</span> <span style="color:var(--text)">No autoscale</span> → ECS CPU tracking</li>
+          <li style="margin-bottom:.4rem"><span class="badge badge-blue">High</span> <span style="color:var(--text)">Patch delays</span> → new image = patch</li>
+          <li style="margin-bottom:.4rem"><span class="badge badge-blue">High</span> <span style="color:var(--text)">No healthz</span> → /healthz + ECS replace</li>
+          <li style="margin-bottom:.4rem"><span class="badge badge-blue">High</span> <span style="color:var(--text)">Batch silent retry</span> → fail-fast + alarm</li>
+          <li style="margin-bottom:.4rem"><span class="badge badge-blue">High</span> <span style="color:var(--text)">Log 7 days</span> → CloudWatch 90d + Glacier</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Correctness</h3>
+        <ul style="list-style:none;font-size:.85rem">
+          <li style="margin-bottom:.4rem"><span class="badge badge-red">Critical</span> <span style="color:var(--text)">Batch exit 0</span> → exit 1 on failures</li>
+          <li style="margin-bottom:.4rem"><span class="badge badge-blue">High</span> <span style="color:var(--text)">SECURITY DEFINER</span> → SECURITY INVOKER</li>
+          <li style="margin-bottom:.4rem"><span class="badge badge-blue">High</span> <span style="color:var(--text)">Hardcoded IPs</span> → env vars</li>
+          <li style="margin-bottom:.4rem"><span class="badge badge-blue">High</span> <span style="color:var(--text)">Filesystem mounts</span> → S3 client</li>
+          <li style="margin-bottom:.4rem"><span class="badge badge-blue">High</span> <span style="color:var(--text)">Matview cron</span> → pg_cron on RDS</li>
+          <li style="margin-bottom:.4rem"><span class="badge badge-blue">High</span> <span style="color:var(--text)">No structured log</span> → JSON + CloudWatch</li>
+          <li style="margin-bottom:.4rem"><span class="badge badge-amber">Medium</span> <span style="color:var(--text)">requirements unpinned</span> → pinned versions</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 7. IaC ─────────────────────────────────────────────────────── -->
+  <div class="slide" data-slide="7">
+    <h2>Infrastructure as Code — 4 Terraform Modules</h2>
+    <div class="cols cols-4 full">
+      <div class="card" style="border-color:var(--accent2)">
+        <div class="label">Apply first</div>
+        <h3>shared/</h3>
+        <ul style="list-style:none;font-size:.8rem;color:var(--muted)">
+          <li>ECR (2 repos, immutable tags)</li>
+          <li>S3 (3 buckets + lifecycle)</li>
+          <li>SNS alerts fanout</li>
+          <li>CloudTrail (GDPR audit)</li>
+          <li>AWS Budgets (80%/100%)</li>
+          <li>Terraform state backend</li>
+        </ul>
+      </div>
+      <div class="card accent">
+        <div class="label">Week 1–3</div>
+        <h3>web-app/</h3>
+        <ul style="list-style:none;font-size:.8rem;color:var(--muted)">
+          <li>ECS cluster + service</li>
+          <li>ALB + ACM + TLS 1.3</li>
+          <li>HTTP→HTTPS redirect</li>
+          <li>WAF (SQLi, OWASP, rate limit)</li>
+          <li>Auto-scaling CPU 60%</li>
+          <li>CloudWatch 5xx alarm → SNS</li>
+        </ul>
+      </div>
+      <div class="card" style="border-color:var(--warn)">
+        <div class="label">Week 4–6</div>
+        <h3>batch/</h3>
+        <ul style="list-style:none;font-size:.8rem;color:var(--muted)">
+          <li>AWS Batch Fargate</li>
+          <li>EventBridge Scheduler 02:00</li>
+          <li>Job timeout 2h</li>
+          <li>3 CloudWatch alarms → SNS</li>
+          <li>No output by 04:15 alert</li>
+          <li>Job failed + duration alarms</li>
+        </ul>
+      </div>
+      <div class="card success">
+        <div class="label">Week 7–10</div>
+        <h3>reporting/</h3>
+        <ul style="list-style:none;font-size:.8rem;color:var(--muted)">
+          <li>RDS PG15 Multi-AZ</li>
+          <li>pgaudit parameter group</li>
+          <li>Read replica (Risk/Finance)</li>
+          <li>ElastiCache AOF + Multi-AZ</li>
+          <li>AWS Backup (Glacier, 365d)</li>
+          <li>4 RDS alarms → SNS</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card full" style="margin-top:1rem;padding:.75rem 1.25rem">
+      <p style="font-size:.85rem">
+        Every module: <strong>default_tags</strong> for cost attribution ·
+        <strong>S3+DynamoDB remote state</strong> with lock ·
+        <strong>SNS fanout</strong> from shared/ · outputs consumed by dependent modules
+      </p>
+    </div>
+  </div>
+
+  <!-- ── 8. Testing ────────────────────────────────────────────────── -->
+  <div class="slide" data-slide="8">
+    <h2>Testing Pyramid — 112 Tests</h2>
+    <div class="cols cols-2 full">
+      <div>
+        <!-- Pyramid visualization -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:.5rem;width:100%">
+          <div style="width:55%;background:rgba(239,68,68,.15);border:1px solid var(--danger);border-radius:.5rem;padding:.6rem;text-align:center">
+            <strong style="font-size:.85rem;color:#fca5a5">E2E — 1 test</strong>
+            <p style="font-size:.7rem;color:var(--muted)">Full user journey</p>
+          </div>
+          <div style="width:70%;background:rgba(245,158,11,.15);border:1px solid var(--warn);border-radius:.5rem;padding:.6rem;text-align:center">
+            <strong style="font-size:.85rem;color:#fcd34d">Data Integrity — 28 tests</strong>
+            <p style="font-size:.7rem;color:var(--muted)">Checksums · business rules · schema</p>
+          </div>
+          <div style="width:82%;background:rgba(16,185,129,.15);border:1px solid var(--accent2);border-radius:.5rem;padding:.6rem;text-align:center">
+            <strong style="font-size:.85rem;color:#6ee7b7">Batch — 17 tests</strong>
+            <p style="font-size:.7rem;color:var(--muted)">Idempotency · exit codes · S3 format · logging</p>
+          </div>
+          <div style="width:91%;background:rgba(59,130,246,.15);border:1px solid var(--accent);border-radius:.5rem;padding:.6rem;text-align:center">
+            <strong style="font-size:.85rem;color:#93c5fd">Contract + Security + Perf — 44 tests</strong>
+            <p style="font-size:.7rem;color:var(--muted)">API contract · SQLi/XSS · p95 SLA · cookie flags</p>
+          </div>
+          <div style="width:100%;background:rgba(100,116,139,.15);border:1px solid var(--border);border-radius:.5rem;padding:.6rem;text-align:center">
+            <strong style="font-size:.85rem;color:var(--text)">Smoke — 22 tests</strong>
+            <p style="font-size:.7rem;color:var(--muted)">Connectivity · PG15 version · pgaudit · no SECURITY DEFINER</p>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h3 style="margin-bottom:1rem">Highlights</h3>
+        <div class="card" style="margin-bottom:.75rem">
+          <strong>Security tests (new)</strong>
+          <p style="font-size:.82rem">SQLi in username + password · XSS reflection · path traversal · user enumeration · HttpOnly cookie flag</p>
+        </div>
+        <div class="card" style="margin-bottom:.75rem">
+          <strong>Performance baselines</strong>
+          <p style="font-size:.82rem">/healthz p95 &lt;200ms · /login p95 &lt;500ms · /api/accounts p95 &lt;800ms (EBA guideline)</p>
+        </div>
+        <div class="card" style="margin-bottom:.75rem">
+          <strong>Idempotency (batch)</strong>
+          <p style="font-size:.82rem">Second run detects completed.marker and exits 0 without touching DB or overwriting report</p>
+        </div>
+        <div class="card">
+          <strong>Data integrity</strong>
+          <p style="font-size:.82rem">MD5 checksum of full tables source→target · pg_cron jobs · pgaudit active · 5 per-team roles</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 9. TCO ─────────────────────────────────────────────────────── -->
+  <div class="slide" data-slide="9">
+    <h2>Total Cost of Ownership</h2>
+    <div class="cols cols-2 full">
+      <div>
+        <h3 style="margin-bottom:1rem">3-Year savings projection</h3>
+        <!-- Bar chart (CSS) -->
+        <div style="display:flex;align-items:flex-end;gap:1.5rem;height:160px;margin-bottom:.5rem">
+          <div style="display:flex;flex-direction:column;align-items:center;flex:1">
+            <div style="width:100%;background:var(--danger);opacity:.7;height:100%;border-radius:.25rem .25rem 0 0;display:flex;align-items:flex-start;justify-content:center;padding-top:.3rem">
+              <span style="font-size:.75rem;font-weight:700;color:white">€288k</span>
+            </div>
+            <div style="font-size:.75rem;color:var(--muted);margin-top:.3rem">On-prem Y1</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;flex:1">
+            <div style="width:100%;background:var(--accent2);opacity:.7;height:36%;border-radius:.25rem .25rem 0 0;display:flex;align-items:flex-start;justify-content:center;padding-top:.3rem">
+              <span style="font-size:.75rem;font-weight:700;color:white">€104k</span>
+            </div>
+            <div style="font-size:.75rem;color:var(--muted);margin-top:.3rem">Cloud Y1*</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;flex:1">
+            <div style="width:100%;background:var(--danger);opacity:.7;height:125%;border-radius:.25rem .25rem 0 0;display:flex;align-items:flex-start;justify-content:center;padding-top:.3rem">
+              <span style="font-size:.75rem;font-weight:700;color:white">€360k</span>
+            </div>
+            <div style="font-size:.75rem;color:var(--muted);margin-top:.3rem">On-prem Y3†</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;flex:1">
+            <div style="width:100%;background:var(--accent2);opacity:.7;height:19%;border-radius:.25rem .25rem 0 0;display:flex;align-items:flex-start;justify-content:center;padding-top:.3rem">
+              <span style="font-size:.75rem;font-weight:700;color:white">€54k</span>
+            </div>
+            <div style="font-size:.75rem;color:var(--muted);margin-top:.3rem">Cloud Y3</div>
+          </div>
+        </div>
+        <p style="font-size:.75rem;color:var(--muted)">* Includes €100k migration investment · † Hardware refresh cycle</p>
+      </div>
+      <div>
+        <div class="cols cols-2" style="gap:.75rem;margin-bottom:1rem">
+          <div class="stat card success">
+            <div class="num green">€723k</div>
+            <div class="desc">Cumulative 3-yr saving</div>
+          </div>
+          <div class="stat card accent">
+            <div class="num blue">7 mo</div>
+            <div class="desc">Breakeven point</div>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:.75rem">
+          <h3>Primary saving driver</h3>
+          <p style="font-size:.85rem">Eliminating <strong>2 sysadmin FTEs</strong> (€160k/year)
+          replaced by managed services: RDS automated patching, ECS no-SSH model,
+          ElastiCache managed failover.</p>
+        </div>
+        <div class="card">
+          <h3>On-prem cost breakdown</h3>
+          <p style="font-size:.8rem;color:var(--muted)">
+            Hardware amortisation €72k · DC facilities €38k · OS licences €18k · <strong style="color:var(--danger)">Sysadmin team €160k</strong>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 10. Migration Sequence ─────────────────────────────────────── -->
+  <div class="slide" data-slide="10">
+    <h2>Migration Sequence — 10 Weeks</h2>
+    <div class="timeline full" style="margin-bottom:2rem;margin-top:.5rem">
+      <div class="tl-item">
+        <div class="tl-dot done"></div>
+        <div class="tl-title">Shared infra</div>
+        <div class="tl-meta">Week 0 · ECR, S3, SNS, CloudTrail</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot done"></div>
+        <div class="tl-title">web-app</div>
+        <div class="tl-meta">Weeks 1–3 · ECS Fargate + ALB + WAF</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot done"></div>
+        <div class="tl-title">batch-recon.</div>
+        <div class="tl-meta">Weeks 4–6 · AWS Batch + EventBridge</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-title">DB migrations</div>
+        <div class="tl-meta">Week 6 · PG13→15, pgaudit, pg_cron</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-title">reporting-db</div>
+        <div class="tl-meta">Weeks 7–10 · RDS Multi-AZ cutover</div>
+      </div>
+    </div>
+    <div class="cols cols-3 full">
+      <div class="card warn">
+        <h3>Finance blackout window</h3>
+        <p style="font-size:.85rem">Reporting-db cutover must NOT overlap last 3 business days of any month (Finance close 17:00–19:00 CET). Surfaced in stakeholder interview.</p>
+      </div>
+      <div class="card accent">
+        <h3>Rollback at every stage</h3>
+        <p style="font-size:.85rem">Per-workload, per-stage rollback in docs/08-rollback-plan.md. Max rollback time: 10 min web-app, 15 min reporting-db. DNS switch only.</p>
+      </div>
+      <div class="card success">
+        <h3>Smoke → Contract before cutover</h3>
+        <p style="font-size:.85rem">Full test suite must pass on the cloud stack before any DNS cutover. Data integrity checks run with SOURCE_DB_URL set to on-prem.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 11. Phase 2 ────────────────────────────────────────────────── -->
+  <div class="slide" data-slide="11">
+    <h2>Phase 2 — Cloud Native Roadmap</h2>
+    <div class="cols cols-2 full">
+      <div>
+        <p style="margin-bottom:1.25rem">Phase 2 is <strong>contractually committed</strong> and budgeted
+        (Q3 2026 planning cycle). The replatform architecture was deliberately designed as a stepping stone.</p>
+        <div style="display:flex;flex-direction:column;gap:.75rem">
+          <div class="card" style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <strong>Web-app → API Gateway + Lambda</strong>
+              <p style="font-size:.8rem">True scale-to-zero · eliminate always-on ECS cost</p>
+            </div>
+            <span class="badge badge-blue">Q4 2026</span>
+          </div>
+          <div class="card" style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <strong>Batch → Lambda + Step Functions</strong>
+              <p style="font-size:.8rem">Parallel reconciliation · sub-15-min completion</p>
+            </div>
+            <span class="badge badge-blue">Q4 2026</span>
+          </div>
+          <div class="card" style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <strong>Row-level security per team</strong>
+              <p style="font-size:.8rem">Replace shared credentials · GDPR hardening</p>
+            </div>
+            <span class="badge badge-green">Q3 2026</span>
+          </div>
+          <div class="card" style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <strong>Reporting-db → Aurora Serverless v2</strong>
+              <p style="font-size:.8rem">Auto-scaling storage · pause during off-hours</p>
+            </div>
+            <span class="badge badge-amber">Q1 2027</span>
+          </div>
+          <div class="card" style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <strong>AI/ML credit scoring pipeline</strong>
+              <p style="font-size:.8rem">EU AI Act compliant · data stays in eu-west-1</p>
+            </div>
+            <span class="badge badge-amber">Q2 2027</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h3 style="margin-bottom:1rem">Why replatform enables Phase 2</h3>
+        <div class="card" style="margin-bottom:.75rem">
+          <p style="font-size:.85rem"><strong>No renegotiation</strong> — AWS contract already permits Lambda, EventBridge, DynamoDB. Phase 2 is zero procurement friction.</p>
+        </div>
+        <div class="card" style="margin-bottom:.75rem">
+          <p style="font-size:.85rem"><strong>Same Docker images</strong> — ECS tasks become Lambda containers with no rebuild. The containerisation investment is preserved.</p>
+        </div>
+        <div class="card" style="margin-bottom:.75rem">
+          <p style="font-size:.85rem"><strong>Operational confidence</strong> — SRE team gained cloud-ops experience during Phase 1. Serverless debugging is now tractable.</p>
+        </div>
+        <div class="card">
+          <p style="font-size:.85rem"><strong>Test suite carries forward</strong> — Smoke, contract, data-integrity tests are environment-agnostic. They will validate Phase 2 without rewriting.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 12. Summary ────────────────────────────────────────────────── -->
+  <div class="slide" data-slide="12">
+    <h2>Summary</h2>
+    <div class="cols cols-4 full" style="margin-bottom:1.5rem">
+      <div class="stat card success"><div class="num green">36</div><div class="desc">Findings discovered<br>via interviews</div></div>
+      <div class="stat card success"><div class="num green">23</div><div class="desc">Critical + High<br>findings fixed</div></div>
+      <div class="stat card accent"><div class="num blue">11</div><div class="desc">Technology ADRs<br>documented</div></div>
+      <div class="stat card accent"><div class="num blue">112</div><div class="desc">Tests across<br>4 layers</div></div>
+    </div>
+    <div class="cols cols-3 full">
+      <div class="stat card warn"><div class="num amber">€723k</div><div class="desc">3-year TCO saving vs on-prem</div></div>
+      <div class="stat card warn"><div class="num amber">7 mo</div><div class="desc">Investment breakeven</div></div>
+      <div class="stat card warn"><div class="num amber">12/12</div><div class="desc">SRE night-watch<br>problems resolved</div></div>
+    </div>
+    <div class="card full" style="margin-top:1.5rem;text-align:center;border-color:var(--accent2);padding:1.25rem">
+      <p style="font-size:1rem">
+        <strong>The journey</strong>: stakeholder interviews surfaced what code review cannot ·
+        ADRs with hard constraints produce defensible decisions ·
+        the test pyramid proves production-readiness, not just compilation
+      </p>
+    </div>
+  </div>
+
+</div><!-- /deck -->
+
+<!-- ── Navigation ──────────────────────────────────────────────────── -->
+<nav class="nav">
+  <button id="prev" onclick="go(-1)" disabled>← Prev</button>
+  <span class="counter" id="counter">1 / 12</span>
+  <button id="next" onclick="go(1)">Next →</button>
+</nav>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const total  = slides.length;
+  let cur = 0;
+
+  function go(delta) {
+    slides[cur].classList.remove('active');
+    cur = Math.max(0, Math.min(total - 1, cur + delta));
+    slides[cur].classList.add('active');
+    document.getElementById('counter').textContent = `${cur + 1} / ${total}`;
+    document.getElementById('prev').disabled = cur === 0;
+    document.getElementById('next').disabled = cur === total - 1;
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown')  go(1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')    go(-1);
+  });
+</script>
+</body>
+</html>
