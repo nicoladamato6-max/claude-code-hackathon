@@ -1,0 +1,10 @@
+variable "aws_region"       { default = "eu-west-1" }
+variable "environment"      { default = "production" }
+variable "batch_image"      { description = "ECR image URI for batch-reconciliation job" }
+variable "vpc_id"           { description = "VPC for Batch compute environment" }
+variable "private_subnets"  { type = list(string) }
+variable "db_secret_arn"    { description = "Secrets Manager ARN for DATABASE_URL" }
+variable "s3_bucket_output" { default = "reconciliation-output" }
+variable "job_schedule"     { default = "cron(0 2 * * ? *)" }  # 02:00 UTC daily
+variable "job_timeout_sec"  { default = 7200 }                  # 2-hour SLA window
+variable "sns_alerts_arn"  { description = "SNS topic ARN from infra/shared for alarm actions" }
