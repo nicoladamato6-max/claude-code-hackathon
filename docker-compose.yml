@@ -1,7 +1,13 @@
 services:
 
   postgres:
-    image: postgres:15
+    build: ./workloads/reporting-db          # custom image: postgres:15 + pgaudit + pg_cron
+    command: >
+      postgres
+      -c shared_preload_libraries=pgaudit,pg_cron
+      -c pg_cron.database=contoso
+      -c pgaudit.log=ddl,write,role
+      -c pgaudit.log_relation=on
     environment:
       POSTGRES_DB: contoso
       POSTGRES_USER: contoso_user
@@ -10,11 +16,21 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Migrations run automatically on first startup via docker-entrypoint-initdb.d
+      - ./workloads/reporting-db/migrations/V1__init_schema.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./workloads/reporting-db/migrations/V2__stored_procedures.sql:/docker-entrypoint-initdb.d/02-stored-procs.sql
+      - ./workloads/reporting-db/migrations/V3__roles_and_pgcron.sql:/docker-entrypoint-initdb.d/03-roles.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U contoso_user -d contoso"]
+      # Two-stage check: (1) postgres accepts connections, (2) schema + seed data ready
+      test:
+        - "CMD-SHELL"
+        - >
+          pg_isready -U contoso_user -d contoso &&
+          psql -U contoso_user -d contoso -tAc
+          "SELECT 1 FROM app.users LIMIT 1" 2>/dev/null | grep -q 1
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 30      # migrations + bcrypt for 5 users can take ~15s on first boot
 
   redis:
     image: redis:7-alpine
@@ -34,7 +50,7 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-changeme_local}
     ports:
       - "9000:9000"   # S3 API
-      - "9001:9001"   # MinIO console
+      - "9001:9001"   # MinIO console (http://localhost:9001)
     volumes:
       - minio_data:/data
     healthcheck:
@@ -43,7 +59,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # Creates required buckets on first startup
+  # Creates required buckets on first startup then exits
   minio-init:
     image: minio/mc:latest
     depends_on:
@@ -65,15 +81,17 @@ services:
     environment:
       DATABASE_URL: postgresql://contoso_user:${POSTGRES_PASSWORD:-changeme_local}@postgres:5432/contoso
       REDIS_URL: redis://redis:6379
-      SECRET_KEY: ${SECRET_KEY:-changeme_local_secret}
+      SECRET_KEY: ${SECRET_KEY:-changeme_local_secret_do_not_use_in_prod}
       S3_ENDPOINT_URL: http://minio:9000
       S3_BUCKET_ASSETS: web-assets
       AWS_REGION: eu-west-1
-      SESSION_COOKIE_SECURE: "false"   # HTTP is fine locally; true in cloud
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-changeme_local}
+      SESSION_COOKIE_SECURE: "false"   # HTTP is fine locally; true in cloud (ACM + ALB)
       FLASK_DEBUG: "false"
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_healthy   # waits for schema + seed data
       redis:
         condition: service_healthy
       minio-init:
