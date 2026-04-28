@@ -1,0 +1,39 @@
+# Terraform state — must never be committed (CLAUDE.md constraint + discovery §10)
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+terraform.tfvars
+*.tfvars
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+.pytest_cache/
+
+# Environment / secrets
+.env
+.env.*
+*.pem
+*.key
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+~$*
+
+# Claude Code internal
+.claude/
+
+# Flask session filesystem fallback (local only)
+flask_session/

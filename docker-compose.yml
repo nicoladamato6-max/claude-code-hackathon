@@ -1,0 +1,89 @@
+services:
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: contoso
+      POSTGRES_USER: contoso_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_local}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U contoso_user -d contoso"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-changeme_local}
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # MinIO console
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Creates required buckets on first startup
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set local http://minio:9000 $${MINIO_ROOT_USER:-minioadmin} $${MINIO_ROOT_PASSWORD:-changeme_local};
+        mc mb --ignore-existing local/web-assets;
+        mc mb --ignore-existing local/reconciliation-output;
+        mc mb --ignore-existing local/db-backups;
+        echo 'Buckets ready.';
+      "
+
+  web-app:
+    build: ./workloads/web-app
+    ports:
+      - "5000:8080"
+    environment:
+      DATABASE_URL: postgresql://contoso_user:${POSTGRES_PASSWORD:-changeme_local}@postgres:5432/contoso
+      REDIS_URL: redis://redis:6379
+      SECRET_KEY: ${SECRET_KEY:-changeme_local_secret}
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_BUCKET_ASSETS: web-assets
+      AWS_REGION: eu-west-1
+      SESSION_COOKIE_SECURE: "false"   # HTTP is fine locally; true in cloud
+      FLASK_DEBUG: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  minio_data:
